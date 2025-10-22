@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workload Balancer using Genetic Algorithm</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Workload Balancer</h1>
+        <p>อัปโหลดไฟล์ Excel ที่มีคอลัมน์ 'task' และ 'workload' เพื่อแบ่งงานให้พนักงาน</p>
+
+        <div class="upload-section">
+            <input type="file" id="excelFile" accept=".xlsx">
+            <label for="numPeople">จำนวนคนที่จะแบ่งงานให้ (N):</label>
+            <input type="number" id="numPeople" value="3" min="1">
+            <button id="uploadButton">อัปโหลดและคำนวณ</button>
+            <div id="loading" class="spinner" style="display: none;"></div>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <div id="results" style="display: none;">
+            <h2>ผลลัพธ์การแบ่งงาน</h2>
+            <p>ความแปรปรวนรวม: <span id="finalVariance"></span></p>
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Workload</th>
+                        <th>Label (กลุ่ม)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Data will be inserted here by JavaScript -->
+                </tbody>
+            </table>
+            <a id="downloadLink" href="#" style="display: none;">ดาวน์โหลดไฟล์ Excel ผลลัพธ์</a>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
