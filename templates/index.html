@@ -1,45 +1,133 @@
+<!-- templates/index.html -->
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workload Balancer using Genetic Algorithm</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <title>Workload Balancer</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        input[type="file"], input[type="number"], button { display: block; width: 100%; padding: 10px; margin-bottom: 10px; }
+        input[type="file"] { padding: 5px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .error-message { color: red; margin-top: 10px; }
+        .success-message { color: green; margin-top: 10px; }
+        .result-section { margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px; }
+        .employee-card { border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+        .employee-card h3 { margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
 </head>
 <body>
     <div class="container">
         <h1>Workload Balancer</h1>
         <p>อัปโหลดไฟล์ Excel ที่มีคอลัมน์ 'task' และ 'workload' เพื่อแบ่งงานให้พนักงาน</p>
 
-        <div class="upload-section">
-            <input type="file" id="excelFile" accept=".xlsx">
-            <label for="numPeople">จำนวนคนที่จะแบ่งงานให้ (N):</label>
-            <input type="number" id="numPeople" value="3" min="1">
-            <button id="uploadButton">อัปโหลดและคำนวณ</button>
-            <div id="loading" class="spinner" style="display: none;"></div>
-        </div>
+        <form id="uploadForm">
+            <input type="file" id="excelFile" name="file" accept=".xlsx" required>
+            <label for="num_people">จำนวนคนที่แบ่งงานให้ (N):</label>
+            <input type="number" id="num_people" name="num_people" value="3" min="1" required>
+            <button type="submit">อัปโหลดและคำนวณ</button>
+        </form>
 
-        <div id="message" class="message"></div>
-
-        <div id="results" style="display: none;">
-            <h2>ผลลัพธ์การแบ่งงาน</h2>
-            <p>ความแปรปรวนรวม: <span id="finalVariance"></span></p>
-            <table id="resultTable">
-                <thead>
-                    <tr>
-                        <th>Task</th>
-                        <th>Workload</th>
-                        <th>Label (กลุ่ม)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Data will be inserted here by JavaScript -->
-                </tbody>
-            </table>
-            <a id="downloadLink" href="#" style="display: none;">ดาวน์โหลดไฟล์ Excel ผลลัพธ์</a>
+        <div id="message" class="error-message"></div>
+        <div id="results" class="result-section" style="display: none;">
+            <h2>ผลการแบ่งงาน</h2>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); // ป้องกันการ submit ฟอร์มแบบปกติ
+
+            const messageDiv = document.getElementById('message');
+            const resultsDiv = document.getElementById('results');
+            messageDiv.textContent = ''; // ล้างข้อความเก่า
+            messageDiv.className = 'error-message'; // รีเซ็ต class
+            resultsDiv.style.display = 'none'; // ซ่อนผลลัพธ์เก่า
+
+            const fileInput = document.getElementById('excelFile');
+            const numPeopleInput = document.getElementById('num_people');
+            
+            if (fileInput.files.length === 0) {
+                messageDiv.textContent = 'กรุณาเลือกไฟล์ Excel';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('num_people', numPeopleInput.value);
+
+            try {
+                const response = await fetch('/upload_and_calculate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                // ตรวจสอบว่า response เป็น JSON หรือไม่
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") !== -1) {
+                    const data = await response.json();
+
+                    if (response.ok) { // Status code 200-299
+                        messageDiv.className = 'success-message';
+                        messageDiv.textContent = 'แบ่งงานสำเร็จ!';
+                        displayResults(data.data);
+                    } else { // Error response
+                        messageDiv.textContent = `เกิดข้อผิดพลาด: ${data.error || 'Unknown error'}`;
+                    }
+                } else {
+                    // หาก response ไม่ใช่ JSON (เช่น HTML error page)
+                    const text = await response.text();
+                    messageDiv.textContent = `เกิดข้อผิดพลาดที่ไม่คาดคิดจากเซิร์ฟเวอร์ (ไม่ได้รับ JSON): ${response.status} ${response.statusText}. Response: ${text.substring(0, 200)}...`;
+                }
+
+            } catch (error) {
+                messageDiv.textContent = `เกิดข้อผิดพลาดในการเชื่อมต่อ: ${error.message}`;
+            }
+        });
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>ผลการแบ่งงาน</h2>'; // ล้างผลลัพธ์เก่า
+            
+            if (Object.keys(data).length === 0) {
+                resultsDiv.innerHTML += '<p>ไม่มีงานที่แบ่งได้</p>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+
+            for (const employee in data) {
+                const employeeTasks = data[employee];
+                const employeeCard = document.createElement('div');
+                employeeCard.className = 'employee-card';
+                
+                let totalWorkload = 0;
+                let tasksHtml = '';
+
+                if (employeeTasks.length > 0) {
+                    tasksHtml += '<table><thead><tr><th>Task</th><th>Workload</th></tr></thead><tbody>';
+                    employeeTasks.forEach(task => {
+                        tasksHtml += `<tr><td>${task.task}</td><td>${task.workload}</td></tr>`;
+                        totalWorkload += task.workload;
+                    });
+                    tasksHtml += '</tbody></table>';
+                } else {
+                    tasksHtml = '<p>ไม่มีงาน</p>';
+                }
+
+                employeeCard.innerHTML = `
+                    <h3>${employee} (Total Workload: ${totalWorkload.toFixed(2)})</h3>
+                    ${tasksHtml}
+                `;
+                resultsDiv.appendChild(employeeCard);
+            }
+            resultsDiv.style.display = 'block';
+        }
+    </script>
 </body>
 </html>
